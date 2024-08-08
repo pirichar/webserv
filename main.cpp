@@ -1,5 +1,12 @@
 
 #include <iostream>
+#include <sys/time.h>
+#include <unistd.h>
+
+#define SERVER_PORT 80
+
+#define MAXLINE 4096
+#define SA struct sockaddr
 
 /**
  * @brief 
