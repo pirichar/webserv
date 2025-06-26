@@ -1,0 +1,121 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/c++",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-std=c++98",
+      "-Iinclude",
+      "-c",
+      "-o",
+      "obj/ConfigParser.o",
+      "src/ConfigParser.cpp"
+    ],
+    "directory": "/Users/pier-lucrichard/prog/webserv",
+    "file": "/Users/pier-lucrichard/prog/webserv/src/ConfigParser.cpp",
+    "output": "/Users/pier-lucrichard/prog/webserv/obj/ConfigParser.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/c++",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-std=c++98",
+      "-Iinclude",
+      "-c",
+      "-o",
+      "obj/HttpRequest.o",
+      "src/HttpRequest.cpp"
+    ],
+    "directory": "/Users/pier-lucrichard/prog/webserv",
+    "file": "/Users/pier-lucrichard/prog/webserv/src/HttpRequest.cpp",
+    "output": "/Users/pier-lucrichard/prog/webserv/obj/HttpRequest.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/c++",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-std=c++98",
+      "-Iinclude",
+      "-c",
+      "-o",
+      "obj/HttpResponse.o",
+      "src/HttpResponse.cpp"
+    ],
+    "directory": "/Users/pier-lucrichard/prog/webserv",
+    "file": "/Users/pier-lucrichard/prog/webserv/src/HttpResponse.cpp",
+    "output": "/Users/pier-lucrichard/prog/webserv/obj/HttpResponse.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/c++",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-std=c++98",
+      "-Iinclude",
+      "-c",
+      "-o",
+      "obj/Location.o",
+      "src/Location.cpp"
+    ],
+    "directory": "/Users/pier-lucrichard/prog/webserv",
+    "file": "/Users/pier-lucrichard/prog/webserv/src/Location.cpp",
+    "output": "/Users/pier-lucrichard/prog/webserv/obj/Location.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/c++",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-std=c++98",
+      "-Iinclude",
+      "-c",
+      "-o",
+      "obj/ServerConfig.o",
+      "src/ServerConfig.cpp"
+    ],
+    "directory": "/Users/pier-lucrichard/prog/webserv",
+    "file": "/Users/pier-lucrichard/prog/webserv/src/ServerConfig.cpp",
+    "output": "/Users/pier-lucrichard/prog/webserv/obj/ServerConfig.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/c++",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-std=c++98",
+      "-Iinclude",
+      "-c",
+      "-o",
+      "obj/WebServer.o",
+      "src/WebServer.cpp"
+    ],
+    "directory": "/Users/pier-lucrichard/prog/webserv",
+    "file": "/Users/pier-lucrichard/prog/webserv/src/WebServer.cpp",
+    "output": "/Users/pier-lucrichard/prog/webserv/obj/WebServer.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/c++",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-std=c++98",
+      "-Iinclude",
+      "-c",
+      "-o",
+      "obj/main.o",
+      "src/main.cpp"
+    ],
+    "directory": "/Users/pier-lucrichard/prog/webserv",
+    "file": "/Users/pier-lucrichard/prog/webserv/src/main.cpp",
+    "output": "/Users/pier-lucrichard/prog/webserv/obj/main.o"
+  }
+]
