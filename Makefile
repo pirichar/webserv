@@ -1,21 +1,25 @@
 CXX = c++
-CXXFLAGS = -Wall -Wextra -Werror -std=c++98
+CXXFLAGS = -Wall -Wextra -Werror -std=c++98 -Iinclude
 
 NAME = webserv
 
-SRCS = main2.cpp
-OBJS = $(SRCS:.cpp=.o)
+SRCS_DIR = src
+OBJS_DIR = obj
+
+SRCS = $(wildcard $(SRCS_DIR)/*.cpp)
+OBJS = $(patsubst $(SRCS_DIR)/%.cpp,$(OBJS_DIR)/%.o,$(SRCS))
 
 all: $(NAME)
 
 $(NAME): $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $(NAME) $(OBJS)
 
-%.o: %.cpp
+$(OBJS_DIR)/%.o: $(SRCS_DIR)/%.cpp
+	@mkdir -p $(OBJS_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJS)
+	rm -rf $(OBJS_DIR)
 
 fclean: clean
 	rm -f $(NAME)
