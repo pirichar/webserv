@@ -15,7 +15,7 @@
 #include <netdb.h>
 
 // standard HTTP port
-#define SERVER_PORT 80
+#define SERVER_PORT 8080
 
 //size of buffer to read data back in
 #define MAXLINE 4096
@@ -93,7 +93,7 @@ int main(int argc, char **argv)
 	//creating a line that we are gonna send
 	//sending the get command with / (root) with http1.1
 	// \r\n\r\n is telling is the end of the request
-	sprintf(sendline, "Get / HTTP/1.1\r\n\r\n");
+	snprintf(sendline, MAXLINE, "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n");
 	sendbytes = strlen(sendline);
 
 

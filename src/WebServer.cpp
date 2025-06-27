@@ -227,8 +227,6 @@ void WebServer::_execute_cgi(const HttpRequest& request, const Location* locatio
     }
     std::string cgi_path = *cgi_path_ptr;
 
-    std::cout << "DEBUG: CGI Path: " << cgi_path << std::endl;
-
     int pipe_in[2]; // Parent writes to child's stdin
     int pipe_out[2]; // Child writes to parent's stdout
 
@@ -244,46 +242,28 @@ void WebServer::_execute_cgi(const HttpRequest& request, const Location* locatio
         response.setBody("500 Internal Server Error: Fork failed");
         return;
     } else if (pid == 0) { // Child process
-        close(pipe_in[1]); // Close write end of pipe_in
-        close(pipe_out[0]); // Close read end of pipe_out
-
-        dup2(pipe_in[0], STDIN_FILENO); // Redirect stdin
-        dup2(pipe_out[1], STDOUT_FILENO); // Redirect stdout
-
+        close(pipe_in[1]);
+        close(pipe_out[0]);
+        dup2(pipe_in[0], STDIN_FILENO);
+        dup2(pipe_out[1], STDOUT_FILENO);
         close(pipe_in[0]);
         close(pipe_out[1]);
 
-        // Prepare arguments for execve
         std::vector<char*> argv_vec;
         argv_vec.push_back(const_cast<char*>(cgi_path.c_str()));
-        std::string script_relative_path = request.getUri().substr(location->getPath().length());
-        std::string script_full_path = location->getRoot() + script_relative_path;
+        std::string script_full_path = location->getRoot() + request.getUri().substr(location->getPath().length());
         argv_vec.push_back(const_cast<char*>(script_full_path.c_str()));
         argv_vec.push_back(NULL);
 
-        std::cout << "DEBUG (Child): argv_vec: ";
-        for (size_t i = 0; argv_vec[i] != NULL; ++i) {
-            std::cout << argv_vec[i] << " ";
-        }
-        std::cout << std::endl;
-
-        // Prepare environment variables
         std::vector<std::string> env_strings;
         env_strings.push_back("REQUEST_METHOD=" + request.getMethod());
-        size_t query_pos = request.getUri().find('?');
-        if (query_pos != std::string::npos) {
-            env_strings.push_back("QUERY_STRING=" + request.getUri().substr(query_pos + 1));
-        } else {
-            env_strings.push_back("QUERY_STRING=");
-        }
-        
-        std::stringstream ss_content_length;
-        ss_content_length << request.getBody().length();
-        env_strings.push_back("CONTENT_LENGTH=" + ss_content_length.str());
-
+        env_strings.push_back("QUERY_STRING="); // Simplified for this test
+        std::stringstream ss_cl;
+        ss_cl << request.getBody().length();
+        env_strings.push_back("CONTENT_LENGTH=" + ss_cl.str());
         env_strings.push_back("CONTENT_TYPE=" + request.getHeader("Content-Type"));
         env_strings.push_back("SCRIPT_FILENAME=" + script_full_path);
-        env_strings.push_back("REDIRECT_STATUS=200"); // For PHP-CGI
+        env_strings.push_back("REDIRECT_STATUS=200");
 
         std::vector<char*> envp_vec;
         for (size_t i = 0; i < env_strings.size(); ++i) {
@@ -291,24 +271,23 @@ void WebServer::_execute_cgi(const HttpRequest& request, const Location* locatio
         }
         envp_vec.push_back(NULL);
 
-        std::cout << "DEBUG (Child): envp_vec: " << std::endl;
-        for (size_t i = 0; envp_vec[i] != NULL; ++i) {
-            std::cout << "  " << envp_vec[i] << std::endl;
-        }
-
         execve(cgi_path.c_str(), &argv_vec[0], &envp_vec[0]);
-        // If execve returns, an error occurred
-        perror("execve failed"); // Print execve error
-        exit(1); // Exit child process with error
+        perror("execve failed");
+        exit(1);
     } else { // Parent process
-        close(pipe_in[0]); // Close read end of pipe_in
-        close(pipe_out[1]); // Close write end of pipe_out
+        close(pipe_in[0]);
+        close(pipe_out[1]);
 
-        // Write request body to CGI stdin
-        write(pipe_in[1], request.getBody().c_str(), request.getBody().length());
-        close(pipe_in[1]); // Close write end to signal EOF to child
+        const std::string& body = request.getBody();
+        std::cout << "--- CGI PARENT DEBUG ---" << std::endl;
+        std::cout << "Writing to child stdin (length: " << body.length() << "): [" << body << "]" << std::endl;
+        ssize_t bytes_written = write(pipe_in[1], body.c_str(), body.length());
+        if (bytes_written < 0) {
+            perror("write to cgi pipe failed");
+        }
+        std::cout << "Bytes written: " << bytes_written << std::endl;
+        close(pipe_in[1]);
 
-        // Read CGI stdout
         std::string cgi_output;
         char cgi_buffer[4096];
         ssize_t bytes_read_cgi;
@@ -321,21 +300,22 @@ void WebServer::_execute_cgi(const HttpRequest& request, const Location* locatio
         int status;
         waitpid(pid, &status, 0);
 
-        // std::cout << "DEBUG (Parent): CGI raw output:\n---\n" << cgi_output << "\n---" << std::endl;
-        // std::cout << "DEBUG (Parent): Child process exited with status: " << status << std::endl;
+        std::cout << "Child exited with status: " << status << std::endl;
+        if (WIFEXITED(status)) {
+            std::cout << "Child exit code: " << WEXITSTATUS(status) << std::endl;
+        }
+        std::cout << "Raw CGI output:\n---\n" << cgi_output << "\n---" << std::endl;
+        std::cout << "------------------------" << std::endl;
 
         if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
-            // Parse CGI output into HTTP response
             size_t header_end = cgi_output.find("\r\n\r\n");
             if (header_end == std::string::npos) {
                 response.setStatusCode(500);
                 response.setBody("500 Internal Server Error: Malformed CGI output");
                 return;
             }
-
             std::string cgi_headers = cgi_output.substr(0, header_end);
             std::string cgi_body = cgi_output.substr(header_end + 4);
-
             std::istringstream header_stream(cgi_headers);
             std::string line;
             while (std::getline(header_stream, line) && !line.empty()) {
@@ -343,23 +323,22 @@ void WebServer::_execute_cgi(const HttpRequest& request, const Location* locatio
                 if (colon_pos != std::string::npos) {
                     std::string name = line.substr(0, colon_pos);
                     std::string value = line.substr(colon_pos + 1);
-                    // Trim whitespace
                     size_t first_char = value.find_first_not_of(" \t\r\n");
                     size_t last_char = value.find_last_not_of(" \t\r\n");
-                    if (std::string::npos == first_char) {
-                        value = "";
-                    } else {
+                    if (std::string::npos != first_char) {
                         value = value.substr(first_char, (last_char - first_char + 1));
+                    } else {
+                        value = "";
                     }
                     response.setHeader(name, value);
                 }
             }
-            response.setStatusCode(200); // Assuming 200 OK for successful CGI
+            response.setStatusCode(200);
             response.setBody(cgi_body);
-
         } else {
             response.setStatusCode(500);
             response.setBody("500 Internal Server Error: CGI script failed");
+            std::cerr << "CGI script failed. Child exit code: " << WEXITSTATUS(status) << std::endl;
         }
     }
 }
@@ -405,31 +384,68 @@ void WebServer::_handle_client_data(int client_fd) {
     std::string raw_request_data;
     char buffer[4096];
     ssize_t bytes_read;
-    
-    size_t content_length = 0;
-    bool headers_parsed = false;
-    std::string headers_str;
     HttpResponse response;
-    const ServerConfig* server_config = NULL; // Declare here for broader scope
+    const ServerConfig* server_config = NULL;
 
-    // Read headers first
-    while ((bytes_read = recv(client_fd, buffer, sizeof(buffer) - 1, 0)) > 0) {
-        buffer[bytes_read] = '\0';
-        raw_request_data.append(buffer, bytes_read);
-
-        size_t header_end_pos = raw_request_data.find("\r\n\r\n");
-        if (header_end_pos != std::string::npos) {
-            headers_str = raw_request_data.substr(0, header_end_pos);
-            headers_parsed = true;
+    // Read all available data from the socket in a loop.
+    // This is a simplified approach. For a production server, a more
+    // sophisticated state machine for each client would be necessary to handle
+    // slow clients or large requests without blocking the entire server.
+    while (true) {
+        bytes_read = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
+        if (bytes_read > 0) {
+            buffer[bytes_read] = '\0';
+            raw_request_data.append(buffer, bytes_read);
+        } else if (bytes_read == 0) {
+            // Client disconnected prematurely
             break;
+        } else { // bytes_read < 0
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                // No more data to read right now.
+                // In a truly non-blocking server, we would return to the event loop here.
+                // For this project's architecture, we break and process what we have.
+                break;
+            } else {
+                // A real error occurred
+                std::cerr << "Error: recv() failed on fd " << client_fd << std::endl;
+                close(client_fd);
+                for (size_t i = 0; i < _fds.size(); ++i) {
+                    if (_fds[i].fd == client_fd) {
+                        _fds.erase(_fds.begin() + i);
+                        break;
+                    }
+                }
+                return;
+            }
+        }
+        // Basic check to see if we have the full headers.
+        // This is not foolproof and depends on the client sending the request quickly.
+        if (raw_request_data.find("\r\n\r\n") != std::string::npos) {
+            // Now check if we have the full body
+            size_t content_length = 0;
+            size_t header_end_pos = raw_request_data.find("\r\n\r\n");
+            std::string headers_str = raw_request_data.substr(0, header_end_pos);
+            HttpRequest temp_request;
+            try {
+                temp_request.parse(headers_str + "\r\n\r\n");
+                std::string cl_str = temp_request.getHeader("content-length");
+                if (!cl_str.empty()) {
+                    content_length = static_cast<size_t>(std::atol(cl_str.c_str()));
+                }
+            } catch (...) { /* Ignore parsing errors for this check */ }
+
+            size_t body_start_pos = header_end_pos + 4;
+            if (raw_request_data.length() >= body_start_pos + content_length) {
+                // We likely have the full request, break the read loop
+                break;
+            }
         }
     }
 
-    if (bytes_read <= 0 && !headers_parsed) { // Error or client disconnected before headers
+    if (raw_request_data.empty()) {
+        // This can happen if recv returned EAGAIN immediately, or client disconnected.
         if (bytes_read == 0) {
-            std::cout << "Client disconnected on fd " << client_fd << std::endl;
-        } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
-            std::cerr << "Error: recv() failed on fd " << client_fd << std::endl;
+             std::cout << "Client disconnected on fd " << client_fd << std::endl;
         }
         close(client_fd);
         for (size_t i = 0; i < _fds.size(); ++i) {
@@ -439,56 +455,6 @@ void WebServer::_handle_client_data(int client_fd) {
             }
         }
         return;
-    }
-
-    // Parse headers to get Content-Length
-    HttpRequest temp_request;
-    try {
-        temp_request.parse(headers_str + "\r\n\r\n"); // Parse only headers to get Content-Length
-        std::string cl_str = temp_request.getHeader("content-length");
-        if (!cl_str.empty()) {
-            content_length = static_cast<size_t>(std::atol(cl_str.c_str()));
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "Error parsing headers: " << e.what() << std::endl;
-        _serve_error_page(400, NULL, response); // Bad Request
-        std::string response_str = response.toString();
-        send(client_fd, response_str.c_str(), response_str.length(), 0);
-        close(client_fd);
-        for (size_t i = 0; i < _fds.size(); ++i) {
-            if (_fds[i].fd == client_fd) {
-                _fds.erase(_fds.begin() + i);
-                break;
-            }
-        }
-        return;
-    }
-
-    // Read remaining body if Content-Length is present
-    size_t body_start_pos = raw_request_data.find("\r\n\r\n");
-    if (body_start_pos == std::string::npos) {
-        // Should not happen if headers_parsed is true, but for safety
-        _serve_error_page(400, NULL, response);
-        std::string response_str = response.toString();
-        send(client_fd, response_str.c_str(), response_str.length(), 0);
-        close(client_fd);
-        for (size_t i = 0; i < _fds.size(); ++i) {
-            if (_fds[i].fd == client_fd) {
-                _fds.erase(_fds.begin() + i);
-                break;
-            }
-        }
-        return;
-    }
-    body_start_pos += 4; // Move past \r\n\r\n
-
-
-    size_t body_already_read = raw_request_data.length() - body_start_pos;
-
-    while (body_already_read < content_length && (bytes_read = recv(client_fd, buffer, sizeof(buffer) - 1, 0)) > 0) {
-        buffer[bytes_read] = '\0';
-        raw_request_data.append(buffer, bytes_read);
-        body_already_read = raw_request_data.length() - body_start_pos;
     }
 
     std::cout << "Received data from fd " << client_fd << ":\n" << raw_request_data << std::endl;

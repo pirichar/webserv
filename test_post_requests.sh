@@ -19,8 +19,10 @@ function run_test() {
     echo "Command: $command"
 
     # Run the command and capture output and status code
-    HTTP_RESPONSE=$(eval "$command" 2>&1)
-    HTTP_STATUS=$(echo "$HTTP_RESPONSE" | grep -oP "< HTTP/1.1 \K[0-9]{3}" | tail -n 1)
+    # Use -s to silent progress, and -i to include headers
+    local modified_command=${command//-v/-s -i}
+    HTTP_RESPONSE=$(eval "$modified_command")
+    HTTP_STATUS=$(echo "$HTTP_RESPONSE" | grep "HTTP/1.1" | awk '{print $2}' | tail -n 1 | tr -d '\r')
 
     echo "HTTP Status: $HTTP_STATUS (Expected: $expected_status)"
 
@@ -29,6 +31,7 @@ function run_test() {
     else
         echo "RESULT: FAIL"
         echo "Response:"
+        # With -i, the response includes headers, so let's print it all
         echo "$HTTP_RESPONSE"
     fi
 
