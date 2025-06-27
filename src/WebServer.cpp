@@ -194,7 +194,15 @@ void WebServer::_handle_post_request(const HttpRequest& request, const ServerCon
 }
 
 void WebServer::_handle_delete_request(const HttpRequest& request, const Location* location, HttpResponse& response) const {
-    std::string file_path = location->getRoot() + request.getUri();
+    std::string file_path;
+    if (location->getPath() == "/") {
+        file_path = location->getRoot() + request.getUri();
+    } else {
+        file_path = location->getRoot() + request.getUri().substr(location->getPath().length());
+    }
+    std::cout << "--- DELETE DEBUG ---" << std::endl;
+    std::cout << "File path: " << file_path << std::endl;
+    std::cout << "--------------------" << std::endl;
 
     struct stat s;
     if (stat(file_path.c_str(), &s) != 0) {
@@ -251,13 +259,17 @@ void WebServer::_execute_cgi(const HttpRequest& request, const Location* locatio
 
         std::vector<char*> argv_vec;
         argv_vec.push_back(const_cast<char*>(cgi_path.c_str()));
-        std::string script_full_path = location->getRoot() + request.getUri().substr(location->getPath().length());
-        argv_vec.push_back(const_cast<char*>(script_full_path.c_str()));
         argv_vec.push_back(NULL);
+
+        std::string script_full_path = location->getRoot() + request.getUri();
 
         std::vector<std::string> env_strings;
         env_strings.push_back("REQUEST_METHOD=" + request.getMethod());
-        env_strings.push_back("QUERY_STRING="); // Simplified for this test
+        if (request.getMethod() == "GET") {
+            env_strings.push_back("QUERY_STRING=" + request.getUri().substr(request.getUri().find("?") + 1));
+        } else {
+            env_strings.push_back("QUERY_STRING=");
+        }
         std::stringstream ss_cl;
         ss_cl << request.getBody().length();
         env_strings.push_back("CONTENT_LENGTH=" + ss_cl.str());
@@ -270,6 +282,12 @@ void WebServer::_execute_cgi(const HttpRequest& request, const Location* locatio
             envp_vec.push_back(const_cast<char*>(env_strings[i].c_str()));
         }
         envp_vec.push_back(NULL);
+
+        std::cout << "--- CGI ENV DEBUG ---" << std::endl;
+        for (size_t i = 0; i < env_strings.size(); ++i) {
+            std::cout << env_strings[i] << std::endl;
+        }
+        std::cout << "---------------------" << std::endl;
 
         execve(cgi_path.c_str(), &argv_vec[0], &envp_vec[0]);
         perror("execve failed");
@@ -587,7 +605,7 @@ const Location* WebServer::_get_location(const ServerConfig* config, const std::
     const std::vector<Location>& locations = config->getLocations();
     for (size_t i = 0; i < locations.size(); ++i) {
         const std::string& location_path = locations[i].getPath();
-        if (uri.find(location_path) == 0) { // URI starts with location path
+        if (uri.rfind(location_path, 0) == 0) { // URI starts with location path
             if (location_path.length() > max_match_len) {
                 max_match_len = location_path.length();
                 best_match = &(locations[i]);
