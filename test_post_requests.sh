@@ -1,5 +1,23 @@
 #!/bin/bash
 
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# PLD Banner
+echo -e "${BLUE}"
+echo " ____  _     ____  "
+echo "|  _ \| |   |  _ \ "
+echo "| |_) | |   | | | |"
+echo "|  __/| |___| |_| |"
+echo "|_|   |_____|____/ "
+echo -e "${NC}"
+echo -e "${YELLOW}Starting Post Request Tests...${NC}"
+echo
+
 # Configuration
 SERVER_HOST="localhost"
 SERVER_PORT_8080="8080"
@@ -15,8 +33,11 @@ function run_test() {
     local expected_status="$3"
     local cleanup_files="$4"
 
-    echo "\n--- Running Test: $test_name ---"
+    echo -e "${BLUE}===============================================================${NC}"
+    echo -e "${YELLOW}Running Test: $test_name${NC}"
+    echo -e "${BLUE}===============================================================${NC}"
     echo "Command: $command"
+    echo
 
     # Run the command and capture output and status code
     # Use -s to silent progress, and -i to include headers
@@ -27,9 +48,9 @@ function run_test() {
     echo "HTTP Status: $HTTP_STATUS (Expected: $expected_status)"
 
     if [[ "$HTTP_STATUS" == "$expected_status" ]]; then
-        echo "RESULT: PASS"
+        echo -e "${GREEN}RESULT: PASS${NC}"
     else
-        echo "RESULT: FAIL"
+        echo -e "${RED}RESULT: FAIL${NC}"
         echo "Response:"
         # With -i, the response includes headers, so let's print it all
         echo "$HTTP_RESPONSE"
@@ -39,10 +60,11 @@ function run_test() {
     if [[ -n "$cleanup_files" ]]; then
         rm -f $cleanup_files
     fi
+    echo
 }
 
 function cleanup_all() {
-    echo "\n--- Cleaning up all test files ---"
+    echo -e "${YELLOW}--- Cleaning up all test files ---${NC}"
     rm -f test_upload.txt another_test.txt large_file.bin
     rm -f "$UPLOAD_DIR/test_upload.txt"
     rm -f "$UPLOAD_DIR/large_file.bin"
@@ -50,6 +72,7 @@ function cleanup_all() {
     rm -f /Users/pier-lucrichard/prog/webserv/www/delete_me.txt
     rm -f /Users/pier-lucrichard/prog/webserv/www/cgi-bin/test_post.php
     echo "Cleanup complete."
+    echo
 }
 
 # --- Main Test Execution ---
@@ -57,7 +80,7 @@ function cleanup_all() {
 cleanup_all # Ensure a clean slate before starting
 
 # --- Pre-test Setup ---
-echo "\n--- Preparing environment for tests ---"
+echo -e "${YELLOW}--- Preparing environment for tests ---${NC}"
 # Create a file to be deleted by a test
 touch /Users/pier-lucrichard/prog/webserv/www/delete_me.txt
 
@@ -75,6 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 EOF
 chmod +x /Users/pier-lucrichard/prog/webserv/www/cgi-bin/test_post.php
 echo "Test environment ready."
+echo
 
 # Test 1: Successful File Upload (Basic POST)
 echo "Hello, this is a test file." > test_upload.txt
@@ -131,4 +155,4 @@ run_test \
 
 cleanup_all
 
-echo "\n--- All tests completed ---"
+echo -e "${GREEN}--- All tests completed ---${NC}"
